@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101827">
+<title>VK EDITOR AI</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#151f30;--line:#2b3a50;--muted:#a8b4c7;--accent:#8b9cff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f4f6fb;font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:18px 16px;background:#111c2d;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+h1{font-size:21px;margin:0}header p{margin:4px 0 0;color:var(--muted);font-size:12px}
+main{max-width:850px;margin:auto;padding:16px;display:grid;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+h2{font-size:16px;margin:0 0 12px}
+button,.filebtn{background:#6679f5;color:white;border:0;border-radius:11px;padding:11px 14px;font-weight:650;font-size:14px;cursor:pointer}
+button.secondary{background:#27364d;color:#f4f6fb;border:1px solid #3a4b64}
+button:disabled{opacity:.45;cursor:not-allowed}
+input[type=file]{display:none}input[type=text],input[type=number],textarea{width:100%;background:#0d1727;border:1px solid var(--line);border-radius:10px;padding:11px;color:white;font:inherit}
+textarea{min-height:72px;resize:vertical}
+video{width:100%;max-height:360px;background:#05080d;border-radius:12px;display:block}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.row>*{flex:1}
+.small{font-size:12px;color:var(--muted);line-height:1.5}.field{display:grid;gap:6px;margin:10px 0}
+label{font-size:13px;color:#dbe3f1}
+.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.status{padding:10px 12px;background:#0d1727;border:1px solid var(--line);border-radius:10px;color:#cbd5e1;font-size:13px}
+#chatlog{display:grid;gap:8px;max-height:180px;overflow:auto;margin:10px 0}
+.msg{padding:9px 11px;border-radius:11px;background:#24344c;font-size:13px;line-height:1.45}
+.msg.user{background:#34428a;margin-left:22px}
+a{color:#b9c5ff}
+@media(max-width:520px){main{padding:11px}.controls{grid-template-columns:1fr 1fr}.row button{min-width:100px}}
+</style>
+</head>
+<body>
+<header><h1>🎬 VK EDITOR AI</h1><p>तुम्हारे मोबाइल में वीडियो एडिट करने वाला शुरुआती टूल</p></header>
+<main>
+<section class="card">
+  <h2>1. अपना वीडियो चुनो</h2>
+  <div class="row">
+    <label class="filebtn" for="videoFile">📁 वीडियो चुनें</label>
+    <button class="secondary" id="clearBtn" type="button">वीडियो हटाएँ</button>
+  </div>
+  <input id="videoFile" type="file" accept="video/*">
+  <p class="small">वीडियो इसी ब्राउज़र में खुलेगा। इसे किसी सर्वर पर अपलोड नहीं किया जाता।</p>
+  <video id="preview" controls playsinline></video>
+  <div id="fileInfo" class="small">अभी कोई वीडियो नहीं चुना गया।</div>
+</section>
+
+<section class="card">
+  <h2>2. AI को निर्देश दो</h2>
+  <div id="chatlog"><div class="msg">नमस्ते! उदाहरण: “वीडियो 20 सेकंड का करो”, “टेक्स्ट नमस्ते लगाओ”, “स्पीड 1.5 करो”, या “म्यूट करो”।</div></div>
+  <textarea id="command" placeholder="हिंदी में लिखो कि वीडियो में क्या बदलाव करना है..."></textarea>
+  <div class="row" style="margin-top:9px">
+    <button id="sendBtn" type="button">निर्देश लागू करें</button>
+    <button class="secondary" id="voiceBtn" type="button">🎙️ बोलकर बताओ</button>
+  </div>
+  <p class="small">यह पहला संस्करण सामान्य निर्देश पहचानता है। अभी ChatGPT API कनेक्ट नहीं है।</p>
+</section>
+
+<section class="card">
+  <h2>3. एडिटिंग सेटिंग</h2>
+  <div class="controls">
+    <div class="field"><label for="start">शुरुआत (सेकंड)</label><input id="start" type="number" min="0" step="0.1" value="0"></div>
+    <div class="field"><label for="end">अंत (सेकंड)</label><input id="end" type="number" min="0" step="0.1" value="0"></div>
+    <div class="field"><label for="overlay">वीडियो पर टेक्स्ट</label><input id="overlay" type="text" placeholder="जैसे Amazing दुनिया"></div>
+    <div class="field"><label for="speed">स्पीड</label><select id="speed" style="width:100%;padding:11px;background:#0d1727;color:white;border:1px solid #2b3a50;border-radius:10px"><option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x सामान्य</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></div>
+  </div>
+  <div class="row">
+    <label style="display:flex;gap:8px;align-items:center"><input id="mute" type="checkbox"> आवाज़ बंद करें</label>
+    <button class="secondary" id="previewBtn" type="button">सेटिंग प्रीव्यू</button>
+  </div>
+  <p class="small">टेक्स्ट प्रीव्यू में दिखाई देगा। वीडियो डाउनलोड करने पर भी टेक्स्ट जुड़ जाएगा।</p>
+</section>
+
+<section class="card">
+  <h2>4. तैयार वीडियो डाउनलोड करो</h2>
+  <button id="exportBtn" type="button" disabled>▶ एडिट करके वीडियो बनाओ</button>
+  <div id="status" class="status" style="margin-top:10px">पहले वीडियो चुनो।</div>
+  <a id="downloadLink" style="display:none;display:block;margin-top:10px"></a>
+  <p class="small">नोट: यह शुरुआती संस्करण WebM वीडियो बनाता है। फोन/ब्राउज़र के अनुसार रिकॉर्डिंग सुविधा अलग हो सकती है। लंबे वीडियो के बजाय पहले छोटे वीडियो पर जाँच करो।</p>
+</section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const video=$('preview'), fileInput=$('videoFile'), statusBox=$('status');
+let videoURL=null, recording=false, voiceRecognition=null;
+
+function status(s){statusBox.textContent=s}
+function addMsg(text,who='ai'){const d=document.createElement('div');d.className='msg '+(who==='user'?'user':'');d.textContent=text;$('chatlog').appendChild(d);$('chatlog').scrollTop=$('chatlog').scrollHeight}
+function duration(){return Number.isFinite(video.duration)?video.duration:0}
+function updateEnd(){if(duration()){$('end').value=duration().toFixed(1);$('end').max=duration();$('start').max=duration()}}
+fileInput.addEventListener('change',()=>{
+ const f=fileInput.files[0];if(!f)return;
+ if(!f.type.startsWith('video/')){status('कृपया वीडियो फाइल चुनें।');return}
+ if(videoURL)URL.revokeObjectURL(videoURL);
+ videoURL=URL.createObjectURL(f);video.src=videoURL;$('fileInfo').textContent=f.name+' • '+(f.size/1024/1024).toFixed(1)+' MB';
+ $('downloadLink').style.display='none';status('वीडियो लोड हो रहा है...');
+});
+video.addEventListener('loadedmetadata',()=>{updateEnd();$('exportBtn').disabled=false;status('वीडियो तैयार है। अब निर्देश दे सकते हो।')});
+$('clearBtn').onclick=()=>{video.pause();video.removeAttribute('src');video.load();if(videoURL)URL.revokeObjectURL(videoURL);videoURL=null;fileInput.value='';$('fileInfo').textContent='अभी कोई वीडियो नहीं चुना गया।';$('exportBtn').disabled=true;status('पहले वीडियो चुनो।')};
+$('previewBtn').onclick=()=>{if(!videoURL)return status('पहले वीडियो चुनो।');video.playbackRate=Number($('speed').value);video.muted=$('mute').checked;video.currentTime=Math.max(0,Number($('start').value)||0);video.play().catch(()=>{});status('प्रीव्यू सेटिंग लागू हुई।')};
+
+function applyCommand(raw){
+ const t=raw.trim();if(!t)return;
+ addMsg(t,'user');let replies=[];
+ const sec=t.match(/(\d+(?:\.\d+)?)\s*(?:सेकंड|second|seconds|sec)\b?/i);
+ if(sec && /(सेकंड|second|seconds|sec)/i.test(t)){const n=Number(sec[1]);$('start').value=0;$('end').value=Math.min(n,duration()||n);replies.push('वीडियो की अंतिम सीमा '+$('end').value+' सेकंड रखी।')}
+ const textMatch=t.match(/(?:टेक्स्ट|लिखो|लिखना|title)\s*(?:लगाओ|डालो|लिखो|है)?\s*[:\-]?\s*(.+)$/i);
+ if(textMatch){$('overlay').value=textMatch[1].trim();replies.push('वीडियो पर टेक्स्ट सेट कर दिया।')}
+ const speed=t.match(/(?:स्पीड|speed)\s*(?:को)?\s*(0?\.?\d+)\s*x?/i);
+ if(speed){let n=Number(speed[1]);if(n>=0.5&&n<=2){$('speed').value=String(n);replies.push('स्पीड '+n+'x कर दी।')}}
+ if(/म्यूट|आवाज़ बंद|आवाज बंद|mute/i.test(t)){$('mute').checked=true;replies.push('आवाज़ बंद करने की सेटिंग लगा दी।')}
+ if(/आवाज़ चालू|आवाज चालू|unmute/i.test(t)){$('mute').checked=false;replies.push('आवाज़ चालू रखने की सेटिंग लगा दी।')}
+ if(/शुरुआत.*(\d+)/i.test(t)){const m=t.match(/शुरुआत.*?(\d+(?:\.\d+)?)/i);if(m){$('start').value=Math.min(Number(m[1]),duration());replies.push('शुरुआत का समय बदल दिया।')}}
+ if(!replies.length)replies.push('मैंने यह निर्देश पूरी तरह नहीं पहचाना। अभी अवधि, टेक्स्ट, स्पीड और म्यूट के निर्देश समझ सकता हूँ।');
+ addMsg(replies.join(' '));
+}
+$('sendBtn').onclick=()=>applyCommand($('command').value);
+$('command').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('sendBtn').click()}});
+$('voiceBtn').onclick=()=>{
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){status('इस ब्राउज़र में आवाज़ पहचान उपलब्ध नहीं है। Chrome में कोशिश करो या लिखकर निर्देश दो।');return}
+ voiceRecognition=new SR();voiceRecognition.lang='hi-IN';voiceRecognition.interimResults=false;voiceRecognition.maxAlternatives=1;
+ status('सुन रहा हूँ... अब अपना निर्देश बोलो।');
+ voiceRecognition.onresult=e=>{const said=e.results[0][0].transcript;$('command').value=said;applyCommand(said)};
+ voiceRecognition.onerror=()=>status('आवाज़ पहचान नहीं हो पाई। माइक्रोफोन की अनुमति जाँचो।');
+ voiceRecognition.onend=()=>{if(!recording)status('आवाज़ सुनना बंद हुआ।')};
+ voiceRecognition.start();
+};
+
+function drawFrame(ctx,w,h){
+ ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);
+ if(video.videoWidth){const scale=Math.min(w/video.videoWidth,h/video.videoHeight);const dw=video.videoWidth*scale,dh=video.videoHeight*scale;ctx.drawImage(video,(w-dw)/2,(h-dh)/2,dw,dh)}
+ const label=$('overlay').value.trim();
+ if(label){const size=Math.max(24,Math.round(w*0.055));ctx.font='bold '+size+'px Arial';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.lineWidth=Math.max(3,size*.12);ctx.strokeStyle='rgba(0,0,0,.85)';ctx.fillStyle='white';ctx.strokeText(label,w/2,h-28);ctx.fillText(label,w/2,h-28)}
+}
+$('exportBtn').onclick=async()=>{
+ if(!videoURL||recording)return;
+ if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){status('इस ब्राउज़र में वीडियो एक्सपोर्ट सपोर्ट नहीं है। अपडेटेड Chrome में कोशिश करो।');return}
+ const start=Math.max(0,Number($('start').value)||0),end=Math.min(duration(),Number($('end').value)||duration());
+ if(end<=start){status('अंत का समय शुरुआत से बड़ा होना चाहिए।');return}
+ recording=true;$('exportBtn').disabled=true;$('downloadLink').style.display='none';
+ const w=video.videoWidth||720,h=video.videoHeight||1280,canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+ const ctx=canvas.getContext('2d');const canvasStream=canvas.captureStream(30);
+ let audioTracks=[];
+ try{if(video.captureStream){const vs=video.captureStream();audioTracks=vs.getAudioTracks();if($('mute').checked)audioTracks=[];}}
+ catch(e){}
+ const stream=new MediaStream([...canvasStream.getVideoTracks(),...audioTracks]);
+ let mime='video/webm;codecs=vp9';if(!MediaRecorder.isTypeSupported(mime))mime='video/webm;codecs=vp8';if(!MediaRecorder.isTypeSupported(mime))mime='video/webm';
+ let recorder;try{recorder=new MediaRecorder(stream,{mimeType:mime})}catch(e){recording=false;$('exportBtn').disabled=false;status('इस डिवाइस पर रिकॉर्डिंग शुरू नहीं हो सकी।');return}
+ const chunks=[];recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+ recorder.onerror=()=>{recording=false;$('exportBtn').disabled=false;status('एक्सपोर्ट में समस्या आई। छोटा वीडियो आज़माओ।')};
+ recorder.onstop=()=>{
+  const blob=new Blob(chunks,{type:mime}),url=URL.createObjectURL(blob);
+  const a=$('downloadLink');a.href=url;a.download='vk-editor-video.webm';a.textContent='⬇ तैयार वीडियो डाउनलोड करें';a.style.display='block';
+  recording=false;$('exportBtn').disabled=false;video.pause();status('वीडियो तैयार है! डाउनलोड लिंक पर टैप करो।');
+ };
+ video.pause();video.muted=$('mute').checked;video.playbackRate=Number($('speed').value);video.currentTime=start;
+ await new Promise(resolve=>{if(Math.abs(video.currentTime-start)<0.05)return resolve();video.addEventListener('seeked',resolve,{once:true})});
+ drawFrame(ctx,w,h);recorder.start(250);status('वीडियो बनाया जा रहा है... कृपया इस पेज को खुला रखें।');
+ try{await video.play()}catch(e){recorder.stop();return}
+ const render=()=>{
+  if(!recording)return;
+  drawFrame(ctx,w,h);
+  if(video.currentTime>=end||video.ended){video.pause();drawFrame(ctx,w,h);if(recorder.state!=='inactive')recorder.stop();return}
+  requestAnimationFrame(render);
+ };
+ requestAnimationFrame(render);
+};
+</script>
+</body>
+</html>
